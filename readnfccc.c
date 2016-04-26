@@ -19,8 +19,11 @@ $ gcc readnfccc.c -lnfc -o readnfccc
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/types.h>
 
 #include <nfc/nfc.h>
+
+typedef unsigned char byte_t;
 
 // Choose whether to mask the PAN or not
 #define MASKED 0
@@ -37,11 +40,15 @@ void show(size_t recvlg, byte_t *recv) {
 }
 
 int main(int argc, char **argv) {
-	nfc_device_t* pnd;
+    nfc_device *pnd;
+    nfc_target nt;
 
-	byte_t abtRx[MAX_FRAME_LEN];
-	byte_t abtTx[MAX_FRAME_LEN];
-	size_t szRx = sizeof(abtRx);
+    // Allocate only a pointer to nfc_context
+    nfc_context *context;
+
+    byte_t abtRx[MAX_FRAME_LEN];
+    byte_t abtTx[MAX_FRAME_LEN];
+    size_t szRx = sizeof(abtRx);
 	size_t szTx;
 
 	byte_t START_14443A[] = {0x4A, 0x01, 0x00};
@@ -54,7 +61,15 @@ int main(int argc, char **argv) {
 	unsigned char *res, output[50], c, amount[10],msg[100];
 	unsigned int i, j, expiry;
 
-	pnd = nfc_connect(NULL);
+    // Initialize the libnfc and set the nfc_context
+    nfc_init(&context);
+    if (context == NULL) {
+        printf("Unable to init libnfc(malloc)\n");
+        return 1;
+    }typedef unsigned char byte;
+
+    // Open first available device
+    pnd = nfc_open(context, NULL);
 	if (pnd == NULL) {
 		printf("Unable to connect to NFC device.\n");
 		return(1);
@@ -65,21 +80,21 @@ int main(int argc, char **argv) {
 	while(1) {
 
 		szRx = sizeof(abtRx);
-		if (!pn53x_transceive(pnd, START_14443A, sizeof(START_14443A), abtRx, &szRx, NULL)) {
+        if (!nfc_initiator_transceive_bytes(pnd, START_14443A, sizeof(START_14443A), abtRx, szRx, 0)) {
 				nfc_perror(pnd, "START_14443A");
 				return(1);
 		}
 		//show(szRx, abtRx);
 
 		szRx = sizeof(abtRx);
-		if (!pn53x_transceive(pnd, SELECT_APP, sizeof(SELECT_APP), abtRx, &szRx, NULL)) {
+        if (!nfc_initiator_transceive_bytes(pnd, SELECT_APP, sizeof(SELECT_APP), abtRx, szRx, 0)) {
 				nfc_perror(pnd, "SELECT_APP");
 				return(1);
 		}
 		//show(szRx, abtRx);
 
 		szRx = sizeof(abtRx);
-		if (!pn53x_transceive(pnd, READ_RECORD_VISA, sizeof(READ_RECORD_VISA), abtRx, &szRx, NULL)) {
+        if (!nfc_initiator_transceive_bytes(pnd, READ_RECORD_VISA, sizeof(READ_RECORD_VISA), abtRx, szRx, 0)) {
 				nfc_perror(pnd, "READ_RECORD");
 				return(1);
 		}
@@ -124,7 +139,7 @@ int main(int argc, char **argv) {
 		}
 
 		szRx = sizeof(abtRx);
-		if (!pn53x_transceive(pnd, READ_RECORD_MC, sizeof(READ_RECORD_MC), abtRx, &szRx, NULL)) {
+        if (!nfc_initiator_transceive_bytes(pnd, READ_RECORD_MC, sizeof(READ_RECORD_MC), abtRx, szRx, 0)) {
 				nfc_perror(pnd, "READ_RECORD");
 				return(1);
 		}
@@ -172,7 +187,7 @@ int main(int argc, char **argv) {
 		for(i=1;i<=20;i++) {
 			READ_PAYLOG_VISA[4] = i;
 			szRx = sizeof(abtRx);
-			if (!pn53x_transceive(pnd, READ_PAYLOG_VISA, sizeof(READ_PAYLOG_VISA), abtRx, &szRx, NULL)) {
+            if (!nfc_initiator_transceive_bytes(pnd, READ_PAYLOG_VISA, sizeof(READ_PAYLOG_VISA), abtRx, szRx, 0)) {
 					nfc_perror(pnd, "READ_RECORD");
 					return(1);
 			}
@@ -202,7 +217,7 @@ int main(int argc, char **argv) {
 		for(i=1;i<=20;i++) {
 			READ_PAYLOG_MC[4] = i;
 			szRx = sizeof(abtRx);
-			if (!pn53x_transceive(pnd, READ_PAYLOG_MC, sizeof(READ_PAYLOG_MC), abtRx, &szRx, NULL)) {
+            if (!nfc_initiator_transceive_bytes(pnd, READ_PAYLOG_MC, sizeof(READ_PAYLOG_MC), abtRx, szRx, 0)) {
 					nfc_perror(pnd, "READ_RECORD");
 					return(1);
 			}
@@ -232,7 +247,7 @@ int main(int argc, char **argv) {
 		printf("-------------------------\n");
 	}
 
-	nfc_disconnect(pnd);
+    nfc_close(pnd);
 
 	return(0);
 }
