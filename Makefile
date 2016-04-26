@@ -1,3 +1,3 @@
 all:
-	gcc readnfccc.c -lnfc -o reanfccc
+	gcc readnfccc.c -lnfc -o readnfccc
 
